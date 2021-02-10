@@ -45,7 +45,7 @@ def loadModel(modelName):
 
 def loadAndPreprocessImages(image_dir):
 	print("Entering loadAndPreprocessImages")
-	imagenet = datasets.imagenet.ImageNet(image_dir, split='val')
+	imagenet = datasets.imagenet.ImageNet(image_dir, split='val', download=True)
 	preprocessedImages = []
 	labels = []
 
@@ -56,8 +56,8 @@ def loadAndPreprocessImages(image_dir):
 		preprocessedImages.append(preprocessImage(input_image))
 		labels.append(image[1])
 		counter = counter + 1
-		if (counter % 2000 == 0):
-			print("Image Number: {} Percent Complete: {:.2%}".format(counter, (counter / numberOfImages) * 100.0))
+		if (counter % 1000 == 0):
+			print("Image Number: {} Percent Complete: {:.2%}".format(counter, (counter / numberOfImages)))
 	print("Exiting loadAndPreprocessImages")
 	return preprocessedImages, labels
 
@@ -82,12 +82,15 @@ def runAttackOnImages(model, attackType, images, labels):
 
 	return adv_images, advs, success
 
-def getAccuracyOfModel(model, images, labels):
+def getAccuracyOfModel(model, images, labels, adversarial):
 	print("Entering getAccuracyOfModel")
 	incorrect = 0
 	numberOfImages = len(images)
 	for i in range(numberOfImages):
-		input_batch = images[i].unsqueeze(0)
+		if adversarial:
+			input_batch = images[i]
+		else:
+			input_batch = images[i].unsqueeze(0)
 
 		# move the input and model to GPU for speed if available
 		if torch.cuda.is_available():
@@ -102,7 +105,7 @@ def getAccuracyOfModel(model, images, labels):
 			incorrect = incorrect + 1
 
 		if (i % 100 == 0 and i != 0):
-			print("Image Number: {} Percent Complete: {:.2%}".format(i, (i / numberOfImages) * 100.0))
+			print("Image Number: {} Percent Complete: {:.2%}".format(i, (i / numberOfImages)))
 
 	print("Accuracy: {:.2%}".format(1 - (incorrect / numberOfImages)))
 	print("Exiting getAccuracyOfModel")
@@ -130,10 +133,11 @@ def main(argv):
 	model = loadModel(modelName)
 	images, labels = loadAndPreprocessImages(img_dir)
 
-	getAccuracyOfModel(model, images, labels)
+	getAccuracyOfModel(model, images, labels, False)
 
 	adv_images, advs, success = runAttackOnImages(model, attack, images, labels)
-	getAccuracyOfModel(model, adv_images, labels)
+	images.clear()
+	getAccuracyOfModel(model, adv_images, labels, True)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
